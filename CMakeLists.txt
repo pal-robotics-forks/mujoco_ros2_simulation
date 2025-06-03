@@ -54,6 +54,7 @@ endif()
 
 # add simulate things
 set(SIMULATE_DIR $ENV{MUJOCO_DIR}/simulate)
+
 # Simulate library
 add_library(platform_ui_adapter OBJECT)
 target_sources(
@@ -61,12 +62,6 @@ target_sources(
   PUBLIC ${SIMULATE_DIR}/glfw_adapter.h ${SIMULATE_DIR}/glfw_dispatch.h ${SIMULATE_DIR}/platform_ui_adapter.h
   PRIVATE ${SIMULATE_DIR}/glfw_adapter.cc ${SIMULATE_DIR}/glfw_dispatch.cc ${SIMULATE_DIR}/platform_ui_adapter.cc
 )
-# target_compile_options(platform_ui_adapter PRIVATE ${MUJOCO_SIMULATE_COMPILE_OPTIONS})
-# if(APPLE)
-#   target_sources(platform_ui_adapter PUBLIC glfw_corevideo.h PRIVATE glfw_corevideo.mm)
-#   set_source_files_properties(glfw_corevideo.mm PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations)
-#   target_link_libraries(platform_ui_adapter PUBLIC "-framework CoreVideo")
-# endif()
 target_include_directories(
   platform_ui_adapter PUBLIC ${SIMULATE_DIR} ${MUJOCO_INCLUDE_DIR}
                              $<TARGET_PROPERTY:glfw,INTERFACE_INCLUDE_DIRECTORIES>
@@ -88,7 +83,7 @@ target_link_libraries(libsimulate PUBLIC lodepng mujoco::platform_ui_adapter ${M
 target_compile_options(libsimulate PRIVATE -Wno-missing-field-initializers)
 
 
-add_executable(mujoco_simulate 
+add_executable(mujoco_simulate
   src/mujoco_simulate.cpp
 )
 target_include_directories(mujoco_simulate PUBLIC
@@ -101,7 +96,7 @@ ament_target_dependencies(mujoco_simulate
   rclcpp
 )
 
-target_link_libraries(mujoco_simulate 
+target_link_libraries(mujoco_simulate
   ${MUJOCO_LIB}
   mujoco::libsimulate
   Threads::Threads
