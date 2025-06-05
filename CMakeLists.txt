@@ -8,6 +8,7 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(control_toolbox REQUIRED)
 find_package(controller_manager REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(hardware_interface REQUIRED)
@@ -97,6 +98,7 @@ add_library(mujoco_ros2_simulation SHARED
     src/mujoco_system_interface.cpp
 )
 ament_target_dependencies(mujoco_ros2_simulation
+  control_toolbox
   controller_manager
   hardware_interface
   pluginlib
@@ -133,9 +135,5 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
-
-install(DIRECTORY launch
-  DESTINATION share/${PROJECT_NAME}
-)
 
 ament_package()

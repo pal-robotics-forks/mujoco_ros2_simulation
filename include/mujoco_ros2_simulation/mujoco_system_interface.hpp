@@ -35,6 +35,8 @@
 #include "glfw_adapter.h"  // for mj::GlfwAdapter
 #include "simulate.h"      // must be on your include path, handled by CMake
 
+#include "mujoco_ros2_simulation/data.hpp"
+
 namespace mujoco_ros2_simulation
 {
 class MujocoSystemInterface : public hardware_interface::SystemInterface
@@ -54,6 +56,15 @@ public:
   hardware_interface::return_type write(const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
 private:
+  // Constructs all actuator/joint data containers for the interface
+  void register_joints(const hardware_interface::HardwareInfo& info);
+
+  // Constructs all sensor data containers for the interface
+  void register_sensors(const hardware_interface::HardwareInfo& info);
+
+  // Sets the initial pose based on URDF params
+  void set_initial_pose();
+
   // For spinning the physics simulation
   void PhysicsLoop(mujoco::Simulate& sim);
 
@@ -81,20 +92,14 @@ private:
   // here to protect access to shared data.
   std::recursive_mutex* sim_mutex_{ nullptr };
 
-  // Joints and actuator data
-  // TODO: Break these and maybe recreate jointstate objects
-  size_t n_joints_{ 0 };
-  std::vector<std::string> joint_names_;
+  // Data containers for the HW interface
+  std::vector<hardware_interface::StateInterface> state_interfaces_;
+  std::vector<hardware_interface::CommandInterface> command_interfaces_;
 
-  std::vector<double> hw_positions_;
-  std::vector<double> hw_velocities_;
-  std::vector<double> hw_efforts_;
-  std::vector<double> hw_commands_;  // Currently just position commands
-
-  // And then put these into them, since a bunch of vectors is a little nerve
-  // wracking
-  std::vector<int> muj_joint_id_;
-  std::vector<int> muj_actuator_id_;
+  // Data containers for the HW interface
+  std::vector<JointState> joint_states_;
+  std::vector<FTSensorData> ft_sensor_data_;
+  std::vector<IMUSensorData> imu_sensor_data_;
 };
 
 }  // namespace mujoco_ros2_simulation
