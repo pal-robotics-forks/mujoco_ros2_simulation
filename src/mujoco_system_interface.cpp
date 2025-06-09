@@ -370,7 +370,7 @@ hardware_interface::CallbackReturn MujocoSystemInterface::on_init(const hardware
       mj_forward(mj_model_, mj_data_);
     }
     // Blocks until terminated
-    PhysicsLoop(*sim_);
+    PhysicsLoop();
   });
 
   return hardware_interface::CallbackReturn::SUCCESS;
