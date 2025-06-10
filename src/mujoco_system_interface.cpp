@@ -789,8 +789,8 @@ void MujocoSystemInterface::register_joints(const hardware_interface::HardwareIn
 
 void MujocoSystemInterface::register_sensors(const hardware_interface::HardwareInfo& hardware_info)
 {
-  // Assuming force/torque sensor end with "_fts" in the name,
-  // and IMU sensor end with "_imu" in the name
+  // We require that force/torque sensors end with "_fts" in the name,
+  // and IMU sensor end with "_imu" in the name.
   for (size_t sensor_index = 0; sensor_index < hardware_info.sensors.size(); sensor_index++)
   {
     auto sensor = hardware_info.sensors.at(sensor_index);
