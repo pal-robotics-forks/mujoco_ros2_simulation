@@ -251,11 +251,17 @@ MujocoSystemInterface::MujocoSystemInterface() = default;
 MujocoSystemInterface::~MujocoSystemInterface()
 {
   // Stop camera rendering loop
-  cameras_->close();
+  if (cameras_)
+  {
+    cameras_->close();
+  }
 
   // Stop ROS
-  executor_->cancel();
-  executor_thread_.join();
+  if (executor_)
+  {
+    executor_->cancel();
+    executor_thread_.join();
+  }
 
   // If sim_ is created and running, clean shut it down
   if (sim_)
