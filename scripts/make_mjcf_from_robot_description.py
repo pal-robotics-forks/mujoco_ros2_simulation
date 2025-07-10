@@ -45,9 +45,9 @@ XML_INPUT_TAGS = [
     "contact",
 ]
 
-decomposed_path_name = "decomposed"
-composed_path_name = "full"
-converter_inputs_name = "converter_inputs"
+DECOMPOSED_PATH_NAME = "decomposed"
+COMPOSED_PATH_NAME = "full"
+CONVERTER_INPUTS_NAME = "converter_inputs"
 
 
 def add_mujoco_info(raw_xml):
@@ -158,8 +158,8 @@ def convert_to_objs(mesh_info_dict, directory, xml_data, convert_stl_to_obj, dec
     # clean assets directory and remake required paths
     if os.path.exists(f"{directory}assets/"):
         shutil.rmtree(f"{directory}assets/")
-    os.makedirs(f"{directory}assets/{composed_path_name}", exist_ok=True)
-    os.makedirs(f"{directory}assets/{decomposed_path_name}", exist_ok=True)
+    os.makedirs(f"{directory}assets/{COMPOSED_PATH_NAME}", exist_ok=True)
+    os.makedirs(f"{directory}assets/{DECOMPOSED_PATH_NAME}", exist_ok=True)
 
     for mesh_name in mesh_info_dict:
         mesh_item = mesh_info_dict[mesh_name]
@@ -178,10 +178,10 @@ def convert_to_objs(mesh_info_dict, directory, xml_data, convert_stl_to_obj, dec
 
         # if we want to decompose the mesh, put it in decomposed filepath, otherwise put it in full
         if filename_no_ext in decompose_dict:
-            assets_relative_filepath = f"{decomposed_path_name}/{filename_no_ext}/"
+            assets_relative_filepath = f"{DECOMPOSED_PATH_NAME}/{filename_no_ext}/"
             os.makedirs(f"{directory}assets/{assets_relative_filepath}", exist_ok=True)
         else:
-            assets_relative_filepath = f"{composed_path_name}/"
+            assets_relative_filepath = f"{COMPOSED_PATH_NAME}/"
         assets_relative_filepath += filename_no_ext
 
         # Import the .stl or .dae file
@@ -201,11 +201,11 @@ def convert_to_objs(mesh_info_dict, directory, xml_data, convert_stl_to_obj, dec
                 xml_data = xml_data.replace(full_filepath, f"{assets_relative_filepath}.obj")
 
             else:
-                shutil.copy2(full_filepath, f'{directory}assets/{assets_relative_filepath}.stl')
+                shutil.copy2(full_filepath, f"{directory}assets/{assets_relative_filepath}.stl")
                 xml_data = xml_data.replace(full_filepath, f"{assets_relative_filepath}.stl")
                 pass
         elif filename_ext.lower() == ".obj":
-            shutil.copy2(full_filepath, f'{directory}assets/{assets_relative_filepath}.obj')
+            shutil.copy2(full_filepath, f"{directory}assets/{assets_relative_filepath}.obj")
             xml_data = xml_data.replace(full_filepath, f"{assets_relative_filepath}.obj")
             pass
             # objs are ok as is
@@ -282,13 +282,13 @@ def set_up_axis_to_z_up(dae_file_path):
 
 def run_obj2mjcf(output_filepath, decompose_dict):
     # remove the folders in the asset directory so that we are clean to run obj2mjcf
-    with os.scandir(f"{output_filepath}assets/{composed_path_name}") as entries:
+    with os.scandir(f"{output_filepath}assets/{COMPOSED_PATH_NAME}") as entries:
         for entry in entries:
             if entry.is_dir():
                 shutil.rmtree(entry.path)
 
     # remove the folders in the asset directory so that we are clean to run obj2mjcf
-    top_level_path = f"{output_filepath}assets/{decomposed_path_name}"
+    top_level_path = f"{output_filepath}assets/{DECOMPOSED_PATH_NAME}"
     for item in os.listdir(top_level_path):
         first_level_path = os.path.join(top_level_path, item)
         if os.path.isdir(first_level_path):
@@ -299,7 +299,7 @@ def run_obj2mjcf(output_filepath, decompose_dict):
                     shutil.rmtree(second_level_path)
 
     # run obj2mjcf to generate folders of processed objs
-    cmd = ["obj2mjcf", "--obj-dir", f"{output_filepath}assets/{composed_path_name}", "--save-mjcf"]
+    cmd = ["obj2mjcf", "--obj-dir", f"{output_filepath}assets/{COMPOSED_PATH_NAME}", "--save-mjcf"]
     subprocess.run(cmd)
 
     # run obj2mjcf to generate folders of processed objs with decompose option for decomposed components
@@ -307,7 +307,7 @@ def run_obj2mjcf(output_filepath, decompose_dict):
         cmd = [
             "obj2mjcf",
             "--obj-dir",
-            f"{output_filepath}assets/{decomposed_path_name}/{mesh_name}",
+            f"{output_filepath}assets/{DECOMPOSED_PATH_NAME}/{mesh_name}",
             "--save-mjcf",
             "--decompose",
             "--coacd-args.threshold",
@@ -336,8 +336,8 @@ def update_obj_assets(dom, output_filepath, mesh_info_dict):
     meshes = asset_element.getElementsByTagName("mesh")
 
     # obj
-    full_decomposed_path = f"{output_filepath}assets/{decomposed_path_name}"
-    full_composed_path = f"{output_filepath}assets/{composed_path_name}"
+    full_decomposed_path = f"{output_filepath}assets/{DECOMPOSED_PATH_NAME}"
+    full_composed_path = f"{output_filepath}assets/{COMPOSED_PATH_NAME}"
     decomposed_dirs = [
         name for name in os.listdir(full_decomposed_path) if os.path.isdir(os.path.join(full_decomposed_path, name))
     ]
@@ -353,11 +353,11 @@ def update_obj_assets(dom, output_filepath, mesh_info_dict):
 
         mesh_path = ""
         if mesh_name in decomposed_dirs:
-            composed_type = decomposed_path_name
-            mesh_path = f"{output_filepath}assets/{decomposed_path_name}/{mesh_name}/{mesh_name}/{mesh_name}.xml"
+            composed_type = DECOMPOSED_PATH_NAME
+            mesh_path = f"{output_filepath}assets/{DECOMPOSED_PATH_NAME}/{mesh_name}/{mesh_name}/{mesh_name}.xml"
         elif mesh_name in composed_dirs:
-            composed_type = composed_path_name
-            mesh_path = f"{output_filepath}assets/{composed_path_name}/{mesh_name}/{mesh_name}.xml"
+            composed_type = COMPOSED_PATH_NAME
+            mesh_path = f"{output_filepath}assets/{COMPOSED_PATH_NAME}/{mesh_name}/{mesh_name}.xml"
 
         if mesh_path:
             sub_dom = minidom.parse(mesh_path)
@@ -372,7 +372,7 @@ def update_obj_assets(dom, output_filepath, mesh_info_dict):
             sub_meshes = sub_asset_element.getElementsByTagName("mesh")
             for sub_mesh in sub_meshes:
                 sub_mesh_file = sub_mesh.getAttribute("file")
-                if composed_type == decomposed_path_name:
+                if composed_type == DECOMPOSED_PATH_NAME:
                     sub_mesh.setAttribute("file", f"{composed_type}/{mesh_name}/{mesh_name}/{sub_mesh_file}")
                 else:
                     sub_mesh.setAttribute("file", f"{composed_type}/{mesh_name}/{sub_mesh_file}")
@@ -476,7 +476,7 @@ def add_mujoco_inputs(dom, mujoco_inputs):
     # TODO: Do we need these to be XML_INPUT_TAGS? could this just be everything?
     for key in mujoco_inputs:
         # converter inputs is special and we don't add it
-        if key != converter_inputs_name:
+        if key != CONVERTER_INPUTS_NAME:
             for node in mujoco_inputs[key]:
                 root.appendChild(node)
 
@@ -843,8 +843,8 @@ def get_urdf_transforms(urdf_string):
 
 def get_decompose_items(mujoco_inputs):
     decompose_dict = dict()
-    if converter_inputs_name in mujoco_inputs:
-        for mujoco_input in mujoco_inputs[converter_inputs_name]:
+    if CONVERTER_INPUTS_NAME in mujoco_inputs:
+        for mujoco_input in mujoco_inputs[CONVERTER_INPUTS_NAME]:
             for child in mujoco_input.childNodes:
                 if child.nodeType == child.ELEMENT_NODE and child.tagName == "decompose_mesh":
                     name = child.getAttribute("mesh_name")
@@ -871,8 +871,10 @@ def main(args=None):
         help="Optionally specify a defaults xml for default settings, actuators, options, and additional sensors",
     )
     parser.add_argument("-o", "--output", default="mjcf_data", help="Generated output path")
-    parser.add_argument("-c", "--convert_stl_to_obj", action="store_true")
-    parser.add_argument("-f", "--add_free_joint", action="store_true")
+    parser.add_argument("-c", "--convert_stl_to_obj", action="store_true", help="If we should convert .stls to .objs")
+    parser.add_argument(
+        "-f", "--add_free_joint", action="store_true", help="Adds a free joint as the base link for mobile robots"
+    )
 
     # remove ros args to make argparser heppy
     args_without_filename = sys.argv[1:]
