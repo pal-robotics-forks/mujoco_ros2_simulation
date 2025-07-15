@@ -807,7 +807,7 @@ void MujocoSystemInterface::register_sensors(const hardware_interface::HardwareI
     {
       RCLCPP_INFO_STREAM(rclcpp::get_logger("MujocoSystemInterface"),
                          "Skipping sensor in ros2_control xacro: " << sensor_name);
-        continue;
+      continue;
     }
     const auto mujoco_type = sensor.parameters.at("mujoco_type");
 
