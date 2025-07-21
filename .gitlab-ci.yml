@@ -36,13 +36,18 @@ build:
   stage: build
   image:
     name: js-er-code.jsc.nasa.gov:5005/ci_build/docker_with_nasa_certs:latest
+  before_script:
+    - docker info
+    - docker login -u gitlab-ci-token -p ${CI_JOB_TOKEN} ${CI_REGISTRY}
+    - echo -e "machine js-er-code.jsc.nasa.gov\nlogin gitlab-ci-token\npassword ${CI_JOB_TOKEN}" > ~/.netrc
   script:
     - DOCKER_BUILDKIT=1 docker build
-        -t "mujoco_ros2_simulation:${CI_COMMIT_REF_SLUG}"
+        -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}"
         --load
         --target mujoco_ros
         --file docker/Dockerfile
         .
+    - docker push ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}
   tags:
     - dind
 
@@ -53,12 +58,12 @@ test:
   script:
     - |
       docker run --rm \
-      mujoco_ros2_simulation:${CI_COMMIT_REF_SLUG} \
+      ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG} \
       bash -c "
         colcon test &&
         colcon test-result --verbose
       "
   after_script:
-    - docker image rm --force mujoco_ros2_simulation:${CI_COMMIT_REF_SLUG} || true
+    - docker image rm --force ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG} || true
   tags:
     - dind
