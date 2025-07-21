@@ -33,7 +33,7 @@ def generate_launch_description():
         [
             PathJoinSubstitution([FindExecutable(name="xacro")]),
             " ",
-            PathJoinSubstitution([FindPackageShare("mujoco_ros2_simulation"), "resources", "test_robot.urdf"]),
+            PathJoinSubstitution([FindPackageShare("mujoco_ros2_simulation"), "test_resources", "test_robot.urdf"]),
         ]
     )
 
