@@ -34,20 +34,10 @@ from urdf_parser_py.urdf import URDF
 from ament_index_python.packages import get_package_share_directory
 from xml.dom import minidom
 
-# These tags will be parsed from inputs and added to the converted MJCF
-XML_INPUT_TAGS = [
-    "sensor",
-    "actuator",
-    "default",
-    "option",
-    "tendon",
-    "equality",
-    "contact",
-]
 
+# Hardcoded relative paths for mujoco asset outputs
 DECOMPOSED_PATH_NAME = "decomposed"
 COMPOSED_PATH_NAME = "full"
-CONVERTER_INPUTS_NAME = "converter_inputs"
 
 
 def add_mujoco_info(raw_xml):
@@ -409,18 +399,20 @@ def update_obj_assets(dom, output_filepath, mesh_info_dict):
 
 
 def update_non_obj_assets(dom, output_filepath):
-    # We want to take the group 1 objects that get created, and turn them into the equivalent
-    # but both in group 2 and in group 3. That means taking something like this
-    #     <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="finger_v6"/>
-    # and turning it into this
-    #     <geom mesh="finger_v6" class="visual" pos="0 0 0" quat="0.707107 0.707107 0 0"/>
-    #     <geom mesh="finger_v6" class="collision" pos="0 0 0" quat="0.707107 0.707107 0 0"/>
-    #
-    # To do this, we need to add in class visual, and class collision to them, keep the rgba on the visual one, and
-    # get rid of the other components (type, contype, conaffinity, group, density)
-    #
-    # We can tell that we need to modify it because it will have a contype attribute attached to it (not the best way
-    # but I guess it works for now)
+    """
+    We want to take the group 1 objects that get created, and turn them into the equivalent
+    but both in group 2 and in group 3. That means taking something like this
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="finger_v6"/>
+    and turning it into this
+        <geom mesh="finger_v6" class="visual" pos="0 0 0" quat="0.707107 0.707107 0 0"/>
+        <geom mesh="finger_v6" class="collision" pos="0 0 0" quat="0.707107 0.707107 0 0"/>
+
+    To do this, we need to add in class visual, and class collision to them, keep the rgba on the visual one, and
+    get rid of the other components (type, contype, conaffinity, group, density)
+
+    We can tell that we need to modify it because it will have a contype attribute attached to it (not the best way
+    but I guess it works for now)
+    """
 
     # Find the <worldbody> element
     worldbody = dom.getElementsByTagName("worldbody")
@@ -466,24 +458,133 @@ def update_non_obj_assets(dom, output_filepath):
     return dom
 
 
-def add_mujoco_inputs(dom, mujoco_inputs):
-
+def add_mujoco_inputs(dom, raw_inputs):
+    """
+    Copies all elements under the "raw_inputs" xml tag directly in the provided dom.
+    This is useful for adding things like actuators, options, or defaults. But any tag that
+    is supported in the MJCF can be added here.
+    """
     root = dom.documentElement
 
-    # Insert input elements
-    # TODO: Insert at the top of the DOM?
-    # TODO: Figure out how to add sensor and camera sites to the listed frames automatically
-    # TODO: Do we need these to be XML_INPUT_TAGS? could this just be everything?
-    for key in mujoco_inputs:
-        # converter inputs is special and we don't add it
-        if key != CONVERTER_INPUTS_NAME:
-            for node in mujoco_inputs[key]:
-                root.appendChild(node)
+    for child in raw_inputs.childNodes:
+        if child.nodeType == child.ELEMENT_NODE:
+            imported_node = dom.importNode(child, True)
+            root.appendChild(imported_node)
 
     return dom
 
 
+def get_processed_mujoco_inputs(processed_inputs_element):
+    """
+    Returns the processed inputs as dictionaries from the specified processed_inputs_element.
+
+    Right now this supports tags for decomposing meshes and adding cameras to sites.
+    """
+
+    decompose_dict = dict()
+    cameras_dict = dict()
+
+    if not processed_inputs_element:
+        return decompose_dict, cameras_dict
+
+    for child in processed_inputs_element.childNodes:
+        if child.nodeType != child.ELEMENT_NODE:
+            continue
+
+        # Grab meshes to decompose
+        if child.tagName == "decompose_mesh":
+            name = child.getAttribute("mesh_name")
+            threshold = "0.05"
+            if not child.hasAttribute("threshold"):
+                print(f"defaulting threshold to 0.05 for decompose of {name}")
+            else:
+                threshold = child.getAttribute("threshold")
+            print(f"Will decompose mesh with name: {name}")
+            decompose_dict[name] = threshold
+
+        # Grab cameras
+        if child.nodeType == child.ELEMENT_NODE and child.tagName == "camera":
+            camera_element = child
+            site_name = camera_element.getAttribute("site")
+            camera_name = camera_element.getAttribute("name")
+
+            # We don't need this in the MJCF
+            camera_element.removeAttribute("site")
+            cameras_dict[site_name] = camera_element
+
+            print(f"Will add camera ({camera_name}) for site ({site_name})")
+
+    return decompose_dict, cameras_dict
+
+
+def parse_inputs_xml(filename=None):
+    """
+    This script can accept inputs in the form of an xml file. This allows users to inject data
+    into the MJCF that is not necessarily included in the URDF.
+
+    E.g.,
+
+    <mujoco_inputs>
+
+        <!-- The contents of `raw_inputs` will be copied and pasted directly into the MJCF -->
+        <raw_inputs>
+            <option integrator="implicitfast"/>
+
+            <default>
+                ...
+            </default>
+
+            <actuator>
+                ...
+            </actuator>
+        </raw_inputs>
+
+        <!-- Specific inputs that require processing from the conversion script-->
+        <processed_inputs>
+            <!-- Specifying decompose_mesh will set the `decompose` flag when using obj2mjcf -->
+            <!-- <decompose_mesh mesh_name="shoulder_link" threshold="0.05"/> -->
+
+            <!-- The camera with the specified values will be added at the specified site name. -->
+            <!-- The position and quaterinion will be filled in by the converter -->
+            <camera site="camera_color_optical_frame" name="camera" fovy="58" mode="fixed" resolution="640 480"/>
+
+        </processed_inputs>
+    </mujoco_inputs>
+    """
+
+    mujoco_inputs = dict()
+    if not filename:
+        return mujoco_inputs
+
+    print(f"Parsing mujoco elements from: {filename}")
+
+    dom = minidom.parse(filename)
+    root = dom.documentElement
+
+    # We only parse the direct children of the root node, which should be called
+    # "mujoco_defaults".
+    if root.tagName != "mujoco_inputs":
+        raise ValueError(f"Root tag in defaults xml must be 'mujoco_inputs', not {root.tagName}")
+
+    raw_inputs = None
+    processed_inputs = None
+
+    for child in root.childNodes:
+        if child.nodeType != child.ELEMENT_NODE:
+            continue
+
+        if child.tagName == "raw_inputs":
+            raw_inputs = child
+        elif child.tagName == "processed_inputs":
+            processed_inputs = child
+
+    return raw_inputs, processed_inputs
+
+
 def add_free_joint(dom, urdf, joint_name="floating_base_joint"):
+    """
+    Optionally adds a free joint to the base of the robot for non-fixed based systems.
+    """
     robot = URDF.from_xml_string(urdf)
     root_link = robot.get_root()
     if root_link == "world":
@@ -499,7 +600,7 @@ def add_free_joint(dom, urdf, joint_name="floating_base_joint"):
 
     # make a free joint under that body
     free_joint = dom.createElement("freejoint")
-    free_joint.setAttribute("name", "floating_base_joint")
+    free_joint.setAttribute("name", joint_name)
     root_body.appendChild(free_joint)
 
     # move the previous body underneath the new body and joint
@@ -514,6 +615,12 @@ def add_free_joint(dom, urdf, joint_name="floating_base_joint"):
 
 
 def add_links_as_sites(urdf, dom, add_free_joint):
+    """
+    Add all links from the URDF as sites in the MJCF. This is handy as all rigid bodies are
+    mashed into a single named object in the MJCF, so we lose site names (like camera links, for instance).
+    To make it easier to connect sensors, etc, we simply add all the removed links as named
+    sites in the MJFC.
+    """
 
     def remove_epsilons(vector, epsilon=1e-8):
         return [value if abs(value) > epsilon else 0 for value in vector]
@@ -593,9 +700,9 @@ def rotate_quaternion(q1, q2):
     ]
 
 
-def add_cameras_from_sites(dom):
+def add_cameras_from_sites(dom, cameras_dict):
     """
-    Adds cameras for any sites that end with "_color_optical_frame". We make the assumption that any
+    Adds cameras to the sites listed in the cameras_dict. We make the assumption that any
     link/site with that name is the color frame for a physical camera matching the REP 103 standard for
     optical frames. As noted in the ROS image message,
     https://github.com/ros2/common_interfaces/blob/rolling/sensor_msgs/msg/Image.msg#L7
@@ -611,51 +718,38 @@ def add_cameras_from_sites(dom):
 
     Therefore, given the site name, the camera is added at the same position but it is rotated pi radians about the
     x axis to ensure the simulated camera's images match those from the URDF.
-
-    TODO: Decide how to handle name and frame conventions. For the realsenses, the frame names include
-          the camera name, image type, and suffix, for instance:
-          "wrist_mounted_camera_color_optical_frame" and "wrist_mounted_camera_depth_optical_frame".
-          We just want a single camera streaming both images, but there isn't a
-          "wrist_mounted_camera_optical_frame" in the URDF. So for now we're just attaching both to the
-          color frame and naming the camera "wrist_mounted_camera_color". We could alternatively have
-          the frame name passed as an argument to the mujoco system, but that is additional work in the
-          drivers.
     """
 
-    # We only attach to the color frame, this is flimsy as noted in the comment above. It also
-    # causes name changes in the camera.
-    camera_suffix = "_color_optical_frame"
     x_rotation = [0.0, 1.0, 0.0, 0.0]  # Rotation by pi around x axis
 
     # Construct all cameras for relevant sites in xml and add them as children to the same parent
     for node in dom.getElementsByTagName("site"):
-        name = node.getAttribute("name")
-        if name.endswith(camera_suffix):
-            camera_name = name[: -len(camera_suffix)] + "_color"
+        site_name = node.getAttribute("name")
+        if site_name in cameras_dict:
             camera_pos = node.getAttribute("pos")
             quat = [float(x) for x in node.getAttribute("quat").split()]
             camera_quat = rotate_quaternion(x_rotation, quat)
 
-            # We could adjust these at some point down the road, maybe pass them as inputs that we parse?
-            camera_node = dom.createElement("camera")
-            camera_node.setAttribute("name", camera_name)
-            camera_node.setAttribute("fovy", "58")
-            camera_node.setAttribute("mode", "fixed")
-            camera_node.setAttribute("resolution", "640 480")
-            camera_node.setAttribute("pos", camera_pos)
-            camera_node.setAttribute("quat", " ".join(map(str, camera_quat)))
+            camera = cameras_dict[site_name]
+            camera.setAttribute("pos", camera_pos)
+            camera.setAttribute("quat", " ".join(map(str, camera_quat)))
 
-            print(f"Adding camera: {camera_name}")
-            print(f"  {camera_pos}")
-            print(f"  {camera_quat}")
-            node.parentNode.appendChild(camera_node)
+            print(f"Adding camera to {site_name}, attributes:")
+            for i in range(camera.attributes.length):
+                attr = camera.attributes.item(i)
+                print(f"  {attr.name}: {attr.value}")
+
+            node.parentNode.appendChild(camera)
 
     return dom
 
 
 def fix_mujoco_description(
-    output_filepath, mesh_info_dict, mujoco_inputs, urdf, decompose_dict, request_add_free_joint
+    output_filepath, mesh_info_dict, raw_inputs, urdf, decompose_dict, cameras_dict, request_add_free_joint
 ):
+    """
+    Handles all necessary post processing from the originally converted MJCF.
+    """
     full_filepath = f"{output_filepath}mujoco_description.xml"
     filename, extension = os.path.splitext(f"{output_filepath}mujoco_description.xml")
     destination_file = filename + "_formatted" + extension
@@ -675,13 +769,13 @@ def fix_mujoco_description(
     dom = update_non_obj_assets(dom, output_filepath)
 
     # Add the mujoco input elements
-    dom = add_mujoco_inputs(dom, mujoco_inputs)
+    dom = add_mujoco_inputs(dom, raw_inputs)
 
     # Add links as sites
     dom = add_links_as_sites(urdf, dom, request_add_free_joint)
 
     # Add cameras based on site names
-    dom = add_cameras_from_sites(dom)
+    dom = add_cameras_from_sites(dom, cameras_dict)
 
     # Write the updated file
     with open(destination_file, "w") as file:
@@ -696,56 +790,10 @@ def fix_mujoco_description(
         file.write(modified_data)
 
 
-def parse_inputs_xml(filename=None):
-    """
-    Grabs a few additional xml settings from specified file. Supports the tags 'default',
-    'option', 'actuator', and 'sensor'. These will be included in the final xml.
-
-    E.g.,
-
-    <mujoco_inputs>
-        <option .../>
-
-        <default>
-            ...
-        </default>
-
-        <actuator>
-            ...
-        </actuator>
-
-        <sensor>
-            ...
-        </sensor>
-    </mujoco_inputs>
-    """
-    mujoco_inputs = dict()
-    # {x : [] for x in XML_INPUT_TAGS}
-    if not filename:
-        return mujoco_inputs
-
-    print(f"Parsing mujoco elements from {filename}")
-    dom = minidom.parse(filename)
-    root = dom.documentElement
-
-    # We only parse the direct children of the root node, which should be called
-    # "mujoco_defaults".
-    if root.tagName != "mujoco_inputs":
-        raise ValueError(f"Root tag in defaults xml must be 'mujoco_inputs', not {root.tagName}")
-
-    for child in root.childNodes:
-        if not child.nodeType == child.ELEMENT_NODE:
-            continue
-
-        if child.tagName not in mujoco_inputs:
-            mujoco_inputs[child.tagName] = []
-        mujoco_inputs[child.tagName].append(child)
-
-    return mujoco_inputs
-
-
 def get_urdf_from_rsp(args=None):
-    # Isolate ROS in a function
+    """
+    Pulls the robot description from the /robot_description topic, if available.
+    """
 
     import rclpy
     from rclpy.node import Node
@@ -841,22 +889,6 @@ def get_urdf_transforms(urdf_string):
     return results
 
 
-def get_decompose_items(mujoco_inputs):
-    decompose_dict = dict()
-    if CONVERTER_INPUTS_NAME in mujoco_inputs:
-        for mujoco_input in mujoco_inputs[CONVERTER_INPUTS_NAME]:
-            for child in mujoco_input.childNodes:
-                if child.nodeType == child.ELEMENT_NODE and child.tagName == "decompose_mesh":
-                    name = child.getAttribute("mesh_name")
-                    threshold = "0.05"
-                    if not child.hasAttribute("threshold"):
-                        print(f"defaulting threshold to 0.05 for decompose of {name}")
-                    else:
-                        threshold = child.getAttribute("threshold")
-                    decompose_dict[name] = threshold
-    return decompose_dict
-
-
 def main(args=None):
 
     parser = argparse.ArgumentParser(description="Convert a full URDF to MJCF for use in Mujoco")
@@ -894,7 +926,9 @@ def main(args=None):
 
     convert_stl_to_obj = parsed_args.convert_stl_to_obj
 
-    mujoco_inputs = parse_inputs_xml(parsed_args.mujoco_inputs)
+    # Part inputs data
+    raw_inputs, processed_inputs = parse_inputs_xml(parsed_args.mujoco_inputs)
+    decompose_dict, cameras_dict = get_processed_mujoco_inputs(processed_inputs)
 
     # Grab the output directory and ensure it ends with '/'
     output_filepath = os.path.join(parsed_args.output, "")
@@ -908,7 +942,6 @@ def main(args=None):
 
     xml_data = replace_package_names(xml_data)
     mesh_info_dict = extract_mesh_info(xml_data)
-    decompose_dict = get_decompose_items(mujoco_inputs)
     xml_data = convert_to_objs(mesh_info_dict, output_filepath, xml_data, convert_stl_to_obj, decompose_dict)
 
     print("writing data to robot_description_formatted.urdf")
@@ -922,7 +955,9 @@ def main(args=None):
     mujoco.mj_saveLastXML(f"{output_filepath}mujoco_description.xml", model)
 
     # Converts objs for use in mujoco, adds tags, inputs, sites, and sensors to the final xml
-    fix_mujoco_description(output_filepath, mesh_info_dict, mujoco_inputs, urdf, decompose_dict, request_add_free_joint)
+    fix_mujoco_description(
+        output_filepath, mesh_info_dict, raw_inputs, urdf, decompose_dict, cameras_dict, request_add_free_joint
+    )
 
     shutil.copy2(f'{get_package_share_directory("mujoco_ros2_simulation")}/resources/scene.xml', output_filepath)
 
