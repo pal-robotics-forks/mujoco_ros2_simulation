@@ -930,16 +930,20 @@ void MujocoSystemInterface::register_joints(const hardware_interface::HardwareIn
     // overwrite joint limit with min/max value
     for (const auto& command_if : joint.command_interfaces)
     {
+      // If available, always default to position control at the start
       if (command_if.name.find(hardware_interface::HW_IF_POSITION) != std::string::npos)
       {
+        last_joint_state.is_position_control_enabled = true;
         last_joint_state.position_command = last_joint_state.position;
       }
       else if (command_if.name.find(hardware_interface::HW_IF_VELOCITY) != std::string::npos)
       {
+        last_joint_state.is_velocity_control_enabled = true;
         last_joint_state.velocity_command = last_joint_state.velocity;
       }
-      else if (command_if.name == hardware_interface::HW_IF_EFFORT)
+      else if (command_if.name.find(hardware_interface::HW_IF_EFFORT) != std::string::npos)
       {
+        last_joint_state.is_effort_control_enabled = true;
         last_joint_state.effort_command = last_joint_state.effort;
       }
     }
