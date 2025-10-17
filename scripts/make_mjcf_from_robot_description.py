@@ -664,6 +664,8 @@ def fix_free_joint(dom, urdf, joint_name="floating_base_joint"):
     # Find all joint elements
     joints = dom.getElementsByTagName("joint")
 
+    succesfully_fixed = False
+
     # Locate the one with name="virtual_base_joint" of type="free"
     for joint in joints:
         if joint.getAttribute("name") == "virtual_base_joint" and joint.getAttribute("type") == "free":
@@ -673,7 +675,11 @@ def fix_free_joint(dom, urdf, joint_name="floating_base_joint"):
 
             # Replace the old joint with the new one
             joint.parentNode.replaceChild(new_joint, joint)
+            succesfully_fixed = True
             break
+
+    if not succesfully_fixed:
+        raise ValueError("Did not find a joint of name virtual_base_joint and type free. What did you just do????")
 
     return dom
 
