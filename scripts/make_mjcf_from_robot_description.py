@@ -652,7 +652,7 @@ def parse_inputs_xml(filename=None):
 def fix_free_joint(dom, urdf, joint_name="floating_base_joint"):
     """
     This change is on the mjcf side, and replaces the "free" joint type with a freejoint tag.
-    This is a special item which explicitl sets all siffness/damping to 0.
+    This is a special item which explicitly sets all stiffness/damping to 0.
     https://mujoco.readthedocs.io/en/stable/XMLreference.html#body-freejoint
     """
     robot = URDF.from_xml_string(urdf)
