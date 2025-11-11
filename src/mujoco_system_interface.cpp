@@ -813,26 +813,26 @@ MujocoSystemInterface::perform_command_mode_switch(const std::vector<std::string
 
       if (interface_type == hardware_interface::HW_IF_POSITION)
       {
-        if(joint_it->has_pos_pid)
-        {
-          joint_it->is_position_pid_control_enabled = true;
-        }
-        else 
+        if(joint_it->actuator_type == ActuatorType::POSITION)
         {
           joint_it->is_position_control_enabled = true;
+        }
+        else if (joint_it->has_pos_pid)
+        {
+          joint_it->is_position_pid_control_enabled = true;
         }
          RCLCPP_INFO(rclcpp::get_logger("MujocoSystemInterface"),
                       "Joint %s: position control enabled (velocity, effort disabled)", joint_name.c_str());
       }
       else if (interface_type == hardware_interface::HW_IF_VELOCITY)
       {
-        if(joint_it->has_vel_pid)
-        {
-          joint_it->is_velocity_pid_control_enabled = true;
-        }
-        else
+        if(joint_it->actuator_type == ActuatorType::VELOCITY)
         {
           joint_it->is_velocity_control_enabled = true;
+        }
+        else if(joint_it->has_vel_pid)
+        {
+          joint_it->is_velocity_pid_control_enabled = true;
         }
         RCLCPP_INFO(rclcpp::get_logger("MujocoSystemInterface"),
                     "Joint %s: velocity control enabled (position, effort disabled)", joint_name.c_str());
@@ -1104,6 +1104,10 @@ void MujocoSystemInterface::register_joints(const hardware_interface::HardwareIn
       last_joint_state.actuator_type = ActuatorType::GENERAL;
     else
       last_joint_state.actuator_type = ActuatorType::UNKNOWN;
+    
+    last_joint_state.has_pos_pid=extractPIDFromParameters ("position", joint.name, last_joint_state.pos_pid, node);
+    last_joint_state.has_vel_pid=extractPIDFromParameters ("velocity", joint.name, last_joint_state.vel_pid, node);
+    
 
     // command interfaces
     // overwrite joint limit with min/max value
@@ -1114,11 +1118,9 @@ void MujocoSystemInterface::register_joints(const hardware_interface::HardwareIn
       {
         if(last_joint_state.actuator_type == ActuatorType::VELOCITY || last_joint_state.actuator_type == ActuatorType::MOTOR)
         {
-          if(extractPIDFromParameters ("position", joint.name, last_joint_state.pos_pid, node))
+          if(last_joint_state.has_pos_pid)
           {
             last_joint_state.is_position_pid_control_enabled = true;
-            last_joint_state.position_command = last_joint_state.position;
-            last_joint_state.has_pos_pid=true;
           }
           else
           {
@@ -1136,10 +1138,9 @@ void MujocoSystemInterface::register_joints(const hardware_interface::HardwareIn
       {
         if(last_joint_state.actuator_type == ActuatorType::POSITION || last_joint_state.actuator_type == ActuatorType::MOTOR)
         {
-          if(last_joint_state.actuator_type == ActuatorType::MOTOR && extractPIDFromParameters ("velocity", joint.name, last_joint_state.vel_pid, node))
+          if(last_joint_state.actuator_type == ActuatorType::MOTOR && last_joint_state.has_vel_pid)
           {
             last_joint_state.is_velocity_pid_control_enabled = true;
-            last_joint_state.has_vel_pid=true;
           }
           else
           {
@@ -1166,8 +1167,12 @@ void MujocoSystemInterface::register_joints(const hardware_interface::HardwareIn
         }
       }
     }
-    // if(!last_joint_state.is_position_control_enabled && !last_joint_state.is_velocity_control_enabled && !last_joint_state.is_effort_control_enabled && !last_joint_state.is_position_pid_control_enabled && !last_joint_state.is_velocity_pid_control_enabled)
-    //     throw std::runtime_error("Joint " + joint.name + " has unsupported actuator configuration");
+    if(!last_joint_state.is_position_control_enabled && !last_joint_state.is_velocity_control_enabled && !last_joint_state.is_effort_control_enabled && !last_joint_state.is_position_pid_control_enabled && !last_joint_state.is_velocity_pid_control_enabled)
+    {
+      RCLCPP_ERROR(rclcpp::get_logger("MujocoSystemInterface"),
+               "Joint '%s' has an unsupported actuator configuration", joint.name.c_str());
+      // return hardware_interface::return_type::ERROR;
+    }
   }
 }
 
