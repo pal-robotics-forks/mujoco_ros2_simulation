@@ -17,13 +17,13 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(Threads REQUIRED)
 
-# Import MuJoCo via vendor package (already installed)
-find_package(mujoco_vendor REQUIRED)
+# Attempt to link MuJoCo via the vendor package, if available
+find_package(mujoco_vendor QUIET)
 if(mujoco_vendor_FOUND)
   set(MUJOCO_LIB mujoco::mujoco)
   set(MUJOCO_INCLUDE_DIR ${mujoco_vendor_INCLUDE_DIRS})
   set(MUJOCO_SIMULATE_DIR ${MUJOCO_INCLUDE_DIR}/../simulate)
-
+# If the user has specified a MuJoCo install location use it
 elseif(DEFINED ENV{MUJOCO_INSTALL_DIR})
   message(STATUS "Mujoco build from source has not been found. Attempting to find the binary in $ENV{MUJOCO_INSTALL_DIR} instead.")
   set(MUJOCO_DIR $ENV{MUJOCO_INSTALL_DIR})
@@ -33,9 +33,10 @@ elseif(DEFINED ENV{MUJOCO_INSTALL_DIR})
   endif()
   set(MUJOCO_INCLUDE_DIR $ENV{MUJOCO_DIR}/include)
   set(MUJOCO_SIMULATE_DIR $ENV{MUJOCO_DIR}/simulate)
+# Otherwise we fallback and download the required tarfile and install it manually
 else()
   include(FetchContent)
-    # Detect architecture
+  # Detect architecture
   set(MUJOCO_VERSION "3.3.4")
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
     set(CPU_ARCH "x86_64")
