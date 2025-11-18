@@ -1162,18 +1162,10 @@ bool MujocoSystemInterface::set_override_start_positions(const std::string& over
     return false;
   }
 
-  for (size_t i = 0; i < qpos.size(); i++)
-  {
-    mj_data_->qpos[i] = qpos[i];
-  }
-  for (size_t i = 0; i < qvel.size(); i++)
-  {
-    mj_data_->qvel[i] = qvel[i];
-  }
-  for (size_t i = 0; i < ctrl.size(); i++)
-  {
-    mj_data_->ctrl[i] = ctrl[i];
-  }
+  // copy data from the input information into the mj_data_ object
+  std::copy(qpos.begin(), qpos.end(), mj_data_->qpos);
+  std::copy(qvel.begin(), qvel.end(), mj_data_->qvel);
+  std::copy(ctrl.begin(), ctrl.end(), mj_data_->ctrl);
 
   return true;
 }
