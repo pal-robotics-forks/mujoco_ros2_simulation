@@ -232,8 +232,10 @@ def get_images_from_dae(dae_path):
     return image_paths
 
 
-# Change all files that match "material_{some_int}.{png, jpg, jpeg}" in a specified directory to be "material_{modifier}_{some_int}.{png, jpg, jpeg}"
-# This is important because trimesh puts out materials that look like material_{some_int}.{png, jpg, jpeg}, and they need to be indexed per item
+# Change all files that match "material_{some_int}.{png, jpg, jpeg}"
+# in a specified directory to be "material_{modifier}_{some_int}.{png, jpg, jpeg}"
+# This is important because trimesh puts out materials that look like
+# material_{some_int}.{png, jpg, jpeg}, and they need to be indexed per item
 def rename_material_textures(dir_path, modifier):
     dir_path = pathlib.Path(dir_path)
 
@@ -375,7 +377,7 @@ def convert_to_objs(mesh_info_dict, directory, xml_data, convert_stl_to_obj, dec
 
                 if os.path.exists(mtl_filepath):
                     for filepath in [mtl_filepath, output_path]:
-                        with open(filepath, "r") as f:
+                        with open(filepath) as f:
                             data = f.read()
                         data = data.replace("material_", f"material_{mtl_modifier}_")
                         with open(filepath, "w") as f:
