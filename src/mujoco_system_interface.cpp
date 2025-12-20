@@ -377,7 +377,7 @@ mjModel* loadModelFromFile(const char* file, mj::Simulate& sim)
   return mnew;
 }
 
-mjModel* loadModelFromTopic(rclcpp::Node::SharedPtr node)
+mjModel* loadModelFromTopic(rclcpp::Node::SharedPtr node, const std::string& topic_name)
 {
   mjModel* mnew = 0;
   std::string robot_description;
@@ -388,7 +388,7 @@ mjModel* loadModelFromTopic(rclcpp::Node::SharedPtr node)
 
   // Try to get mujoco_model via topic
   auto mujoco_model_sub = node->create_subscription<std_msgs::msg::String>(
-      "/mujoco_robot_description", qos_profile, [&](const std_msgs::msg::String::SharedPtr msg) {
+      topic_name, qos_profile, [&](const std_msgs::msg::String::SharedPtr msg) {
         if (!msg->data.empty() && robot_description.empty())
           robot_description = msg->data;
       });
@@ -434,7 +434,7 @@ mjModel* loadModelFromTopic(rclcpp::Node::SharedPtr node)
   return mnew;
 }
 
-mjModel* LoadModel(const char* file, mj::Simulate& sim, rclcpp::Node::SharedPtr node)
+mjModel* LoadModel(const char* file, const std::string& topic, mj::Simulate& sim, rclcpp::Node::SharedPtr node)
 {
   // Try to get the mujoco model from URDF.
   // If it is not available, create a subscription and listen for the model on a topic.
@@ -449,7 +449,7 @@ mjModel* LoadModel(const char* file, mj::Simulate& sim, rclcpp::Node::SharedPtr 
     return loadModelFromFile(file, sim);
   }
   // Try to get the mujoco model from topic
-  return loadModelFromTopic(node);
+  return loadModelFromTopic(node, topic);
 }
 
 ActuatorType getActuatorType(const mjModel* mj_model, int mujoco_actuator_id)
@@ -690,7 +690,9 @@ MujocoSystemInterface::on_init(const hardware_interface::HardwareComponentInterf
   executor_->add_node(mujoco_node_);
   executor_thread_ = std::thread([this]() { executor_->spin(); });
 
-  mj_model_ = LoadModel(model_path_.c_str(), *sim_, mujoco_node_);
+  const std::string mujoco_model_topic =
+      get_hardware_parameter_or(get_hardware_info(), "mujoco_model_topic", "/mujoco_robot_description");
+  mj_model_ = LoadModel(model_path_.c_str(), mujoco_model_topic, *sim_, mujoco_node_);
   if (!mj_model_)
   {
     RCLCPP_FATAL(get_logger(), "Mujoco failed to load the model");
