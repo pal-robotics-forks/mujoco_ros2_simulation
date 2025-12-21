@@ -1,16 +1,16 @@
-# MuJoCo ROS 2 Simulation
+# MuJoCo ros2_control Simulation
 
-This package contains a ROS 2 control system interface for the [MuJoCo Simulator](https://mujoco.readthedocs.io/en/3.3.4/overview.html).
+This package contains a ros2_control system interface for the [MuJoCo Simulator](https://mujoco.readthedocs.io/en/3.4.0/overview.html).
 It was originally written for simulating robot hardware in NASA Johnson's [iMETRO facility](https://ntrs.nasa.gov/citations/20230015485).
 
-The system interface wraps MuJoCo's [Simulate App](https://github.com/google-deepmind/mujoco/tree/3.3.4/simulate) to provide included functionality.
+The system interface wraps MuJoCo's [Simulate App](https://github.com/google-deepmind/mujoco/tree/3.4.0/simulate) to provide included functionality.
 Because the app is not bundled as a library, we compile it directly from a local install of MuJoCo.
 
 Parts of this library are also based on the MoveIt [mujoco_ros2_control](https://github.com/moveit/mujoco_ros2_control) package.
 
 ## Installation
 
-This interface has only been tested against ROS 2 jazzy and MuJoCo `3.3.4`.
+This interface has only been tested against ROS 2 jazzy and MuJoCo `3.4.0`.
 It should also be compatible with kilted and rolling, but we do not actively maintain those.
 We assume all required ROS dependencies have been installed either manually or with `rosdep`.
 
@@ -21,10 +21,10 @@ However, a local install of MuJoCo can be used to build the application by setti
 
 ```bash
 # The tested version
-MUJOCO_VERSION=3.3.4
+MUJOCO_VERSION=3.4.0
 
 # Wherever it was installed and extracted on your machine
-MUJOCO_INSTALL_DIR=/opt/mujoco/mujoco-3.3.4
+MUJOCO_INSTALL_DIR=/opt/mujoco/mujoco-3.4.0
 ```
 
 From there the library can be compiled with `colcon build ...`, as normal.
@@ -369,71 +369,7 @@ The lidar sensor is then configurable through ROS 2 control xacro with:
   </ros2_control>
 ```
 
-## Docker Development Workflow
-
-This project includes a [compose](./docker-compose.yml) and [Dockerfile](./.docker/Dockerfile) for development and testing in an isolated environment.
-
-> [!NOTE]
-> You may need to give docker access to xhost with `xhost +local:docker` to ensure the container has access to the host UI.
-
-For users on arm64 machines, be sure to specify the `CPU_ARCH` variable in your environment when building.
-
-```bash
-docker compose build
-```
-
-The service can be started with:
-
-```bash
-# Start the service in one shell (or start detached)
-docker compose up
-
-# Connect to it in another
-docker compose exec dev bash
-```
-
-This will launch a container with the source code mounted in a colcon workspace.
-From there the source can be modified, built, tested, or otherwise used as normal.
-For example, launch the included test scene with,
-
-```bash
-# Evaluate using the included mujoco simulate application
-${MUJOCO_DIR}/bin/simulate ${ROS_WS}/src/mujoco_ros2_control/test/test_resources/scene.xml
-
-# Or launch the test ROS control interface
-ros2 launch mujoco_ros2_control test_robot.launch.py
-```
-
-> [!NOTE]
-> Rendering contexts in containers can be tricky.
-
-Users may need to tweak the compose file to support their specific host OS or GPUs.
-For more information refer to the comments in the compose file.
-
-## Pixi Development Workflow
-
-A [pixi](https://pixi.sh/latest/installation/) and [robostack](https://robostack.github.io) workflow is also provided.
-The environment is currently only compatible with Jazzy.
-
-To run ensure pixi is installed.
-Then,
-
-```bash
-# Setup the build environment
-pixi run setup-colcon
-
-# Build the package
-pixi run build
-
-# Run tests
-pixi run test
-
-# Launch an interactive shell and source the install
-pixi shell
-source install/setup.bash
-```
-
-### Test Robot System
+## Test Robot System
 
 While examples are limited, we maintain a functional example 2-dof robot system in the [test examples](./test/test_resources/test_robot.urdf) space.
 We generally recommend looking there for examples and recommended workflows.
@@ -461,3 +397,7 @@ ros2 topic pub /position_controller/commands std_msgs/msg/Float64MultiArray "dat
 > UI panels can be toggled with `Tab` or `Shift+Tab`.
 > All standard MuJoCo keyboard shortcuts are available.
 > To see a short list, press `F1`.
+
+## Development
+
+More information is provided in the [developers guide](./docs/DEVELOPMENT.md) document.
